@@ -1,0 +1,145 @@
+################################################################################
+# Terraform
+################################################################################
+
+# Local Terraform data
+**/.terraform/
+**/.terraform.lock.hcl
+
+# Terraform state files (never commit these)
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfstate
+**/*.tfstate.*
+
+# Crash logs
+crash.log
+
+################################################################################
+# Python
+################################################################################
+
+# Virtual environments
+venv/
+.env/
+.env.bak
+.venv/
+venv*/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py.class
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Pip installs
+pip-wheel-metadata/
+pip-log.txt
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+################################################################################
+# FastAPI / Backend
+################################################################################
+
+# Local development files
+*.sqlite3
+instance/
+
+################################################################################
+# Logs
+################################################################################
+
+logs/
+*.log
+*.out
+*.err
+nohup.out
+
+################################################################################
+# Docker
+################################################################################
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# Local volumes created during dev
+docker_data/
+volumes/
+**/tmp/
+**/data/
+
+# Kafka local data directories
+mnt/kafka/
+kafka-data/
+zookeeper-data/
+
+################################################################################
+# Node / UI (if you add a React dashboard)
+################################################################################
+
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+*.tsbuildinfo
+
+################################################################################
+# VS Code
+################################################################################
+
+.vscode/
+.history/
+*.code-workspace
+
+################################################################################
+# JetBrains (PyCharm, IntelliJ)
+################################################################################
+
+.idea/
+*.iml
+
+################################################################################
+# OS files
+################################################################################
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux temporary files
+*~
+*.swp
+*.swo
+
+################################################################################
+# Secrets (never commit)
+################################################################################
+
+# Environment variable files
+*.env
+.env.*
+secret/
+secrets/
+credentials/
+aws_credentials
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12

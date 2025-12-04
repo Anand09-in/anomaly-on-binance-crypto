@@ -1,0 +1,98 @@
+version: "3.8"
+
+# Use Confluent images (well tested). You can change versions as needed.
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zk
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - /mnt/kafka/zookeeper/data:/var/lib/zookeeper/data
+      - /mnt/kafka/zookeeper/log:/var/lib/zookeeper/log
+
+  # Broker 1
+  kafka1:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka1
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${HOST_PRIVATE_IP}:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # internal topic replication defaults for dev (single host)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9092:9092"
+    volumes:
+      - /mnt/kafka/kafka1/data:/var/lib/kafka/data
+
+  # Broker 2
+  kafka2:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka2
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${HOST_PRIVATE_IP}:9093
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9093:9093"
+    volumes:
+      - /mnt/kafka/kafka2/data:/var/lib/kafka/data
+
+  # Broker 3
+  kafka3:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka3
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${HOST_PRIVATE_IP}:9094
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9094:9094"
+    volumes:
+      - /mnt/kafka/kafka3/data:/var/lib/kafka/data
+
+# Keep volumes on host (better than anonymous docker volumes for EBS attachment)
+# (we don't declare Docker named volumes intentionally)
