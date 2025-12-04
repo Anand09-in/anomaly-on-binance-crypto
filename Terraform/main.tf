@@ -61,7 +61,7 @@ resource "aws_security_group" "sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["192.168.1.8/32"] # change to your admin IP for security
+    cidr_blocks = ["122.172.85.177/32"] # Change to your IP
   }
 
   # kafka ports (private/public depending on need). Restrict as you wish.
@@ -121,44 +121,46 @@ resource "aws_instance" "kafka_node" {
                 set -euo pipefail
                 export DEBIAN_FRONTEND=noninteractive
 
-                # variables replaced by Terraform interpolation
-                REPO_URL='${var.git_repo_url}'
-                BRANCH='${var.git_repo_branch}'
-                REPO_DIR='/opt/apprepo'
-
-                # minimal prerequisites for git and unzip (kafka_install handles docker install)
                 apt-get update -y
                 apt-get install -y git unzip curl
 
-                # ensure ubuntu home exists and correct ownership
+                # Prepare ubuntu home
                 mkdir -p /home/ubuntu
                 chown ubuntu:ubuntu /home/ubuntu
 
+                # Repo variables (Terraform will substitute var.git_repo_url and var.git_repo_branch)
+                REPO_URL="${var.git_repo_url}"
+                BRANCH="${var.git_repo_branch}"
+                REPO_DIR="/home/ubuntu/repo"
+
+               
+                mkdir -p "$${REPO_DIR}"
+                chown ubuntu:ubuntu "$${REPO_DIR}"
+
                 # clone or update repository (idempotent)
-                if [ -d "${REPO_DIR}/.git" ]; then
-                echo "Repo already exists — updating ${BRANCH}"
-                cd "${REPO_DIR}"
+                if [ -d "$${REPO_DIR}/.git" ]; then
+                echo "Repo exists, updating branch $${BRANCH}"
+                cd "$${REPO_DIR}"
                 sudo -u ubuntu git fetch --all --prune
-                sudo -u ubuntu git checkout "${BRANCH}" || sudo -u ubuntu git checkout -b "${BRANCH}" origin/"${BRANCH}"
-                sudo -u ubuntu git reset --hard origin/"${BRANCH}"
-                else
-                echo "Cloning repository ${REPO_URL} (branch ${BRANCH}) into ${REPO_DIR}"
-                sudo -u ubuntu git clone -b "${BRANCH}" "${REPO_URL}" "${REPO_DIR}" || { echo "git clone failed"; exit 1; }
+                sudo -u ubuntu git checkout "$${BRANCH}" || sudo -u ubuntu git checkout -b "$${BRANCH}" origin/"$${BRANCH}"
+                sudo -u ubuntu git reset --hard origin/"$${BRANCH}"
+                else          
+                echo "Cloning repository ${var.git_repo_url} (branch ${var.git_repo_branch}) into $${REPO_DIR}"
+                sudo -u ubuntu git clone -b "${var.git_repo_branch}" "${var.git_repo_url}" "$${REPO_DIR}" || { echo "git clone failed"; exit 1; }
                 fi
 
-                # ensure the install script exists and is executable
-                INSTALL_SCRIPT="${REPO_DIR}/Kafka/kafka_install.sh"
-                if [ ! -f "${INSTALL_SCRIPT}" ]; then
-                echo "ERROR: ${INSTALL_SCRIPT} not found in repo. Ensure kafka_install.sh is at repo root."
+                # run install script
+                INSTALL_SCRIPT="$${REPO_DIR}/Kafka/kafka_install.sh"
+                if [ ! -f "$${INSTALL_SCRIPT}" ]; then
+                echo "ERROR: $${INSTALL_SCRIPT} not found"
                 exit 1
                 fi
-                chmod +x "${INSTALL_SCRIPT}"
-
-                # run the install script (as root)
+                chmod +x "$${INSTALL_SCRIPT}"
                 echo "Executing kafka_install.sh..."
-                "${INSTALL_SCRIPT}" || { echo "kafka_install.sh failed"; exit 1; }
+                "$${INSTALL_SCRIPT}" || { echo "kafka_install.sh failed"; exit 1; }
 
                 EOF
+
 
 
   tags = { Name = "${var.project_name}-kafka-node" }
