@@ -12,8 +12,8 @@ services:
     ports:
       - "2181:2181"
     volumes:
-      - /mnt/kafka/zookeeper/data:/var/lib/zookeeper/data
-      - /mnt/kafka/zookeeper/log:/var/lib/zookeeper/log
+      - zk-data:/var/lib/zookeeper/data
+      - zk-log:/var/lib/zookeeper/log
 
   # Broker 1
   kafka1:
@@ -40,7 +40,7 @@ services:
     ports:
       - "9092:9092"
     volumes:
-      - /mnt/kafka/kafka1/data:/var/lib/kafka/data
+      - kafka1-data:/var/lib/kafka/data
 
   # Broker 2
   kafka2:
@@ -66,7 +66,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - /mnt/kafka/kafka2/data:/var/lib/kafka/data
+      - kafka2-data:/var/lib/kafka/data
 
   # Broker 3
   kafka3:
@@ -92,7 +92,12 @@ services:
     ports:
       - "9094:9094"
     volumes:
-      - /mnt/kafka/kafka3/data:/var/lib/kafka/data
-
+      - kafka3-data:/var/lib/kafka/data
+volumes:
+  zk-data:
+  zk-log:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
 # Keep volumes on host (better than anonymous docker volumes for EBS attachment)
 # (we don't declare Docker named volumes intentionally)
