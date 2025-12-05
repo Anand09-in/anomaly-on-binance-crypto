@@ -13,4 +13,4 @@ ENV PYTHONPATH=/app/src
 # Prometheus will scrape on this port
 EXPOSE 8000
 
-CMD ["python", "-m", "producer.main"]
+CMD ["python", "-m", "main"]

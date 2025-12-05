@@ -1,0 +1,13 @@
+{
+    "SYMBOLS": "btcusdt,ethusdt,adausdt,xrpusdt",
+    "WS_STREAM_TYPE": "trade",
+    "PROMETHEUS_PORT": "8000",
+    "KAFKA_RAW_TOPIC": "raw-trades",
+    "KAFKA_KLINE_10S_TOPIC": "kline-10s",
+    "KAFKA_KLINE_1M_TOPIC": "kline-1m",
+    "KAFKA_METRICS_TOPIC": "producer-metrics",
+    "METRICS_PUSH_TO_KAFKA": "false",
+    "PRODUCER_LINGER_MS": "50",
+    "PRODUCER_MAX_RETRIES": "5",
+    "LOG_LEVEL": "INFO"
+}

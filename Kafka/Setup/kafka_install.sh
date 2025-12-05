@@ -6,10 +6,11 @@ LOG() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] $*"; }
 
 # ---- Configurable vars ----
 REPO_DIR="$(dirname "$(realpath "$0")")"   # script location => repo root if placed at repo root
+echo "Repository directory: ${REPO_DIR}"
 COMPOSE_CANDIDATES=(
+  "${REPO_DIR}/docker-compose.yaml"
   "${REPO_DIR}/Setup/docker-compose.yaml"
   "${REPO_DIR}/Kafka/Setup/docker-compose.yaml"
-  "${REPO_DIR}/Kafka/docker-compose.yaml"
 )
 
 ENV_FILE="${REPO_DIR}/.env"

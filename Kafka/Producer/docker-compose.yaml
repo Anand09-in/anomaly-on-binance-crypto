@@ -1,19 +1,25 @@
 version: "3.8"
 services:
   binance-producer:
-    build: ../  # adjust path relative to compose file
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: binance-producer
-    env_file: ../.env
+
+    env_file:
+      - .env
+
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - SYMBOLS=${SYMBOLS}
-      - WS_STREAM_TYPE=${WS_STREAM_TYPE}
-      - PROMETHEUS_PORT=${PROMETHEUS_PORT}
-      - KAFKA_METRICS_TOPIC=${KAFKA_METRICS_TOPIC}
-      - METRICS_PUSH_TO_KAFKA=${METRICS_PUSH_TO_KAFKA}
-    depends_on:
-      - kafka
+      KAFKA_BOOTSTRAP_SERVERS: "${HOST_PRIVATE_IP}:9092,${HOST_PRIVATE_IP}:9093,${HOST_PRIVATE_IP}:9094"
+      SYMBOLS: "${SYMBOLS}"
+      WS_STREAM_TYPE: "${WS_STREAM_TYPE}"
+      PROMETHEUS_PORT: "${PROMETHEUS_PORT}"
+      KAFKA_METRICS_TOPIC: "${KAFKA_METRICS_TOPIC}"
+      METRICS_PUSH_TO_KAFKA: "${METRICS_PUSH_TO_KAFKA}"
+      PRODUCER_COMPRESSION_TYPE: "gzip"
+
     network_mode: bridge
     restart: unless-stopped
+
     ports:
       - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"

@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 from aiokafka import AIOKafkaProducer
-from .config import Settings
+from config import Settings
 
 settings = Settings()
 log = logging.getLogger(__name__)

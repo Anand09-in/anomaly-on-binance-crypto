@@ -5,11 +5,11 @@ import sys
 from datetime import datetime, timezone
 from typing import List
 
-from .config import Settings
-from .binance_ws import binance_combined_stream
-from .kafka_producer import KafkaWriter
-from .aggregator import MultiWindowAggregator
-from .metrics import start_metrics_server, MSG_PRODUCED, MSG_RECEIVED, MSG_PRODUCER_ERRORS, CONNECTED_WS
+from config import Settings
+from binance_ws import binance_combined_stream
+from kafka_producer import KafkaWriter
+from aggregator import MultiWindowAggregator
+from metrics import start_metrics_server, MSG_PRODUCED, MSG_RECEIVED, MSG_PRODUCER_ERRORS, CONNECTED_WS
 
 settings = Settings()
 log = logging.getLogger("producer")

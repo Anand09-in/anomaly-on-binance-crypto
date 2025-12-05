@@ -3,7 +3,7 @@ import json
 import logging
 from typing import AsyncIterator
 from websockets import connect
-from .config import Settings
+from config import Settings
 from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)

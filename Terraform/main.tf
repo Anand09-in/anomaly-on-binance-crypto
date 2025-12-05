@@ -159,6 +159,17 @@ resource "aws_instance" "kafka_node" {
                 echo "Executing kafka_install.sh..."
                 "$${INSTALL_SCRIPT}" || { echo "kafka_install.sh failed"; exit 1; }
 
+
+                # run producer env script
+                PRODUCER_SCRIPT="$${REPO_DIR}/Kafka/Producer/producer_start.sh"
+                if [ ! -f "$${PRODUCER_SCRIPT}" ]; then
+                echo "ERROR: $${PRODUCER_SCRIPT} not found"
+                exit 1
+                fi
+                chmod +x "$${PRODUCER_SCRIPT}"
+                echo "Starting Producer ..."
+                "$${PRODUCER_SCRIPT}" || { echo "producer_start.sh failed"; exit 1; }
+
                 EOF
 
 
