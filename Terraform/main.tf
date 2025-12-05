@@ -150,7 +150,7 @@ resource "aws_instance" "kafka_node" {
                 fi
 
                 # run install script
-                INSTALL_SCRIPT="$${REPO_DIR}/Kafka/kafka_install.sh"
+                INSTALL_SCRIPT="$${REPO_DIR}/Kafka/Setup/kafka_install.sh"
                 if [ ! -f "$${INSTALL_SCRIPT}" ]; then
                 echo "ERROR: $${INSTALL_SCRIPT} not found"
                 exit 1
