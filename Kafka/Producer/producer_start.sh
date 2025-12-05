@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ensure jq is available
+if ! command -v jq >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y jq
+fi
+
 LOG() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [producer_install] $*"; }
 
 LOG "Starting producer_install.sh"
@@ -29,9 +35,9 @@ if [ -z "$HOST_PRIVATE_IP" ]; then
 fi
 
 # -----------------------------------------------------
-# 3) Convert env.json -> .env
+# 3) Convert config.json -> .env
 # -----------------------------------------------------
-LOG "Generating .env from env.json"
+LOG "Generating .env from config.json"
 
 {
   echo "###########################################"
