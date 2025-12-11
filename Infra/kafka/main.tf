@@ -141,7 +141,7 @@ resource "aws_instance" "kafka_node" {
                   chmod +x "$${INSTALL_SCRIPT}"
                   echo "[user_data] Executing kafka_install.sh..."
                   # Run kafka_install as ubuntu so files created under /home/ubuntu are owned by ubuntu
-                  sudo -u ubuntu bash -c "$${INSTALL_SCRIPT}" || { echo "[user_data] kafka_install.sh failed"; exit 1; }
+                  "$${INSTALL_SCRIPT}" || { echo "[user_data] kafka_install.sh failed"; exit 1; }
 
                   echo "[user_data] Kafka infra is up. Producer will be deployed via CI/CD."
                 EOF
