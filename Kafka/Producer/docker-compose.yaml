@@ -1,25 +1,32 @@
-version: "3.8"
+# Kafka/Producer/docker-compose.yaml
+version: "3.9"
+
 services:
   binance-producer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: binance-producer
-
+    image: "${PRODUCER_IMAGE:-766020828663.dkr.ecr.ap-south-1.amazonaws.com/crypto-anom-ml-binance-producer:latest}"
     env_file:
       - .env
-
+    # For readability prefer to rely on .env. If you want overrides, use environment:
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: "${HOST_PRIVATE_IP}:9092,${HOST_PRIVATE_IP}:9093,${HOST_PRIVATE_IP}:9094"
-      SYMBOLS: "${SYMBOLS}"
-      WS_STREAM_TYPE: "${WS_STREAM_TYPE}"
-      PROMETHEUS_PORT: "${PROMETHEUS_PORT}"
-      KAFKA_METRICS_TOPIC: "${KAFKA_METRICS_TOPIC}"
-      METRICS_PUSH_TO_KAFKA: "${METRICS_PUSH_TO_KAFKA}"
-      PRODUCER_COMPRESSION_TYPE: "gzip"
+      # These will be substituted from .env or environment variables at runtime
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - SYMBOLS=${SYMBOLS}
+      - WS_STREAM_TYPE=${WS_STREAM_TYPE}
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT}
+      - KAFKA_METRICS_TOPIC=${KAFKA_METRICS_TOPIC}
+      - METRICS_PUSH_TO_KAFKA=${METRICS_PUSH_TO_KAFKA}
+      - PRODUCER_COMPRESSION_TYPE=${PRODUCER_COMPRESSION_TYPE:-gzip}
 
-    network_mode: bridge
     restart: unless-stopped
+    network_mode: host   # keep this only if you require host networking
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-    ports:
-      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5

@@ -20,8 +20,8 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-      KAFKA_EC2_HOST: ${{ secrets.KAFKA_EC2_HOST }}
       KAFKA_EC2_USER: ubuntu
+      PROJECT_NAME: crypto-anom-ml   # <- change if your var.project_name is different
 
     steps:
       - name: Checkout
@@ -60,6 +60,26 @@ jobs:
 
           echo "FULL_IMAGE=$FULL_IMAGE" >> $GITHUB_ENV
 
+      # 👇 NEW: dynamically discover Kafka EC2 host by Name tag
+      - name: Discover Kafka EC2 public DNS
+        id: discover
+        run: |
+          HOST=$(
+            aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=${PROJECT_NAME}-kafka-node" "Name=instance-state-name,Values=running" \
+              --query "Reservations[0].Instances[0].PublicDnsName" \
+              --output text
+          )
+
+          echo "Discovered Kafka host: $HOST"
+
+          if [ "$HOST" = "None" ] || [ -z "$HOST" ]; then
+            echo "ERROR: Could not find running EC2 with tag Name=${PROJECT_NAME}-kafka-node"
+            exit 1
+          fi
+
+          echo "KAFKA_EC2_HOST=$HOST" >> $GITHUB_ENV
+
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -67,7 +87,8 @@ jobs:
 
       - name: Deploy producer on EC2 (git pull + producer_start.sh)
         run: |
-          ssh -o StrictHostKeyChecking=no $KAFKA_EC2_USER@$KAFKA_EC2_HOST << 'EOF'
+          echo "Deploying to $KAFKA_EC2_HOST"
+          ssh -o StrictHostKeyChecking=no $KAFKA_EC2_USER@$KAFKA_EC2_HOST << EOF
             set -e
 
             REPO_DIR="/home/ubuntu/repo"
@@ -84,13 +105,19 @@ jobs:
               exit 1
             fi
 
+            echo "Setting image for deployment"
+            export PRODUCER_IMAGE="${FULL_IMAGE}"
+            export AWS_REGION="${AWS_REGION}"
+            export ECR_REGISTRY="${ECR_REGISTRY}"
+
             echo "Running producer_start.sh..."
             PRODUCER_SCRIPT="$REPO_DIR/Kafka/Producer/producer_start.sh"
-            if [ ! -f "$PRODUCER_SCRIPT" ]; then
-              echo "ERROR: $PRODUCER_SCRIPT not found"
+            if [ ! -f "\$PRODUCER_SCRIPT" ]; then
+              echo "ERROR: \$PRODUCER_SCRIPT not found"
               exit 1
             fi
 
-            chmod +x "$PRODUCER_SCRIPT"
-            "$PRODUCER_SCRIPT"
+            chmod +x "\$PRODUCER_SCRIPT"
+            "\$PRODUCER_SCRIPT"
+            
           EOF

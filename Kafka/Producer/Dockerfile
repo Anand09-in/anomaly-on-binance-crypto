@@ -1,16 +1,32 @@
+# Kafka/Producer/Dockerfile
 FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1
+# Avoid Python creating .pyc files and enable unbuffered logs
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    POETRY_VIRTUALENVS_CREATE=false
+
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
 
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Install minimal OS deps (tzdata for timezone and build-essential only if needed)
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends tzdata ca-certificates git curl && \
+    rm -rf /var/lib/apt/lists/*
 
-COPY src /app/src
-ENV PYTHONPATH=/app/src
+# Copy and install Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Prometheus will scrape on this port
-EXPOSE 8000
+# Copy application code and set permissions
+COPY --chown=app:app . .
 
-CMD ["python", "-m", "main"]
+USER app
+
+# Optional: small healthcheck script (adjust path if needed)
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import sys,os,socket; sys.exit(0)" || exit 1
+
+# Default command — adjust if your actual entrypoint differs
+CMD ["python", "src/main.py"]
