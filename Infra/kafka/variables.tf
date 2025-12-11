@@ -11,6 +11,7 @@ variable "instance_type" {
 variable "key_name" {
   type        = string
   description = "EC2 key pair name for SSH access"
+  default= "anom-ec2-ssh-key"
 }
 
 variable "project_name" {
@@ -28,6 +29,32 @@ variable "git_repo_url" {
 variable "git_repo_branch" {
   type    = string
   default = "main"
+}
+
+# Find Ubuntu AMI
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+}
+
+
+variable "vpc_id" {
+  type = string
+}
+variable "vpc_cidr" {
+  type = string
+}
+variable "public_subnet_id" {
+  type = string
+}
+
+variable "allowed_ip" {
+  type = string
+  default = "122.172.85.177/32"
 }
 
 

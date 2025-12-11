@@ -9,8 +9,8 @@ REPO_DIR="$(dirname "$(realpath "$0")")"   # script location => repo root if pla
 echo "Repository directory: ${REPO_DIR}"
 COMPOSE_CANDIDATES=(
   "${REPO_DIR}/docker-compose.yaml"
-  "${REPO_DIR}/Setup/docker-compose.yaml"
-  "${REPO_DIR}/Kafka/Setup/docker-compose.yaml"
+  "${REPO_DIR}/kafka/docker-compose.yaml"
+  "${REPO_DIR}/Infra/kafka/docker-compose.yaml"
 )
 
 ENV_FILE="${REPO_DIR}/.env"

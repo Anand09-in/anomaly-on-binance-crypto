@@ -1,0 +1,96 @@
+name: Build & Deploy Binance Producer
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "Kafka/Producer/**"
+      - ".github/workflows/deploy-producer.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Override image tag (default: latest)"
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      KAFKA_EC2_HOST: ${{ secrets.KAFKA_EC2_HOST }}
+      KAFKA_EC2_USER: ubuntu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="latest"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build & Push Producer image
+        working-directory: ./Kafka/Producer
+        run: |
+          IMAGE_NAME=binance-producer
+          TAG=${{ steps.tag.outputs.tag }}
+          FULL_IMAGE="$ECR_REGISTRY/$IMAGE_NAME:$TAG"
+
+          echo "Building $FULL_IMAGE"
+          docker build -t "$FULL_IMAGE" .
+          docker push "$FULL_IMAGE"
+
+          echo "FULL_IMAGE=$FULL_IMAGE" >> $GITHUB_ENV
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.KAFKA_EC2_SSH_KEY }}
+
+      - name: Deploy producer on EC2 (git pull + producer_start.sh)
+        run: |
+          ssh -o StrictHostKeyChecking=no $KAFKA_EC2_USER@$KAFKA_EC2_HOST << 'EOF'
+            set -e
+
+            REPO_DIR="/home/ubuntu/repo"
+            BRANCH="${KAFKA_GIT_BRANCH:-main}"
+
+            echo "Updating repo at $REPO_DIR to branch $BRANCH..."
+            if [ -d "$REPO_DIR/.git" ]; then
+              cd "$REPO_DIR"
+              sudo -u ubuntu git fetch --all --prune
+              sudo -u ubuntu git checkout "$BRANCH" || sudo -u ubuntu git checkout -b "$BRANCH" origin/"$BRANCH"
+              sudo -u ubuntu git reset --hard origin/"$BRANCH"
+            else
+              echo "ERROR: Repo dir $REPO_DIR not found. Did Terraform user_data clone it?"
+              exit 1
+            fi
+
+            echo "Running producer_start.sh..."
+            PRODUCER_SCRIPT="$REPO_DIR/Kafka/Producer/producer_start.sh"
+            if [ ! -f "$PRODUCER_SCRIPT" ]; then
+              echo "ERROR: $PRODUCER_SCRIPT not found"
+              exit 1
+            fi
+
+            chmod +x "$PRODUCER_SCRIPT"
+            "$PRODUCER_SCRIPT"
+          EOF

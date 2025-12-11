@@ -69,3 +69,34 @@ The system is fully containerized, deployed on AWS EKS, and monitored with Prome
 
 
 
+ssh -i anom-ec2-ssh-key.pem ubuntu@<public-ip>
+
+terraform destroy -var="key_name=anom-ec2-ssh-key" -auto-approve
+
+terraform fmt
+terraform validate
+terraform apply -var="key_name=anom-ec2-ssh-key" -auto-approve
+
+
+
+# show final user-data output (most useful)
+sudo tail -n 400 /var/log/cloud-init-output.log
+
+# show cloud-init main log
+sudo tail -n 200 /var/log/cloud-init.log
+
+# cloud-init overall status
+sudo cloud-init status --long || true
+
+
+# kline-10s:
+docker exec -it kafka1 kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic kline-10s \
+  --from-beginning
+
+# kline-1m:
+docker exec -it kafka1 kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic kline-1m \
+  --from-beginning
