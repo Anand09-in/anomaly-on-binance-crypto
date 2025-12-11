@@ -50,7 +50,7 @@ jobs:
       - name: Build & Push Producer image
         working-directory: ./Kafka/Producer
         run: |
-          IMAGE_NAME=binance-producer
+          IMAGE_NAME=crypto-anom-ml-binance-producer
           TAG=${{ steps.tag.outputs.tag }}
           FULL_IMAGE="$ECR_REGISTRY/$IMAGE_NAME:$TAG"
 
@@ -119,5 +119,5 @@ jobs:
 
             chmod +x "\$PRODUCER_SCRIPT"
             "\$PRODUCER_SCRIPT"
-            
+
           EOF
