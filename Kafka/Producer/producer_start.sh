@@ -48,7 +48,8 @@ echo "[producer_start] Generating .env from $ENV_JSON → $ENV_FILE (temp $TMP_E
 } > "$TMP_ENV"
 
 # move into place atomically
-mv "$TMP_ENV" "$ENV_FILE"
+install -m 600 "$ENV_TMP" "$ENV_FILE"
+rm -f "$ENV_TMP"
 chmod 600 "$ENV_FILE"
 echo "[producer_start] Generated .env (first 50 lines):"
 head -n 50 "$ENV_FILE" || true
