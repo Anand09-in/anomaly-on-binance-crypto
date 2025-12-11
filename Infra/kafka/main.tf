@@ -10,7 +10,7 @@ resource "aws_security_group" "sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.allowed_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -45,6 +45,28 @@ resource "aws_security_group" "sg" {
 #     values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
 #   }
 # }
+resource "aws_iam_role" "kafka_instance_role" {
+  name = "${var.project_name}-kafka-instance-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+      Action   = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "kafka_ecr_read" {
+  role       = aws_iam_role.kafka_instance_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_instance_profile" "kafka_instance_profile" {
+  name = "${var.project_name}-kafka-instance-profile"
+  role = aws_iam_role.kafka_instance_role.name
+}
+
 
 resource "aws_instance" "kafka_node" {
   ami                    = data.aws_ami.ubuntu.id
@@ -53,6 +75,8 @@ resource "aws_instance" "kafka_node" {
   vpc_security_group_ids = [aws_security_group.sg.id]
   key_name               = var.key_name  
   associate_public_ip_address = true
+  iam_instance_profile = aws_iam_instance_profile.kafka_instance_profile.name
+
 
 
   user_data = <<-EOF
