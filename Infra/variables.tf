@@ -8,10 +8,6 @@ variable "allowed_ip" {
   default     = "122.172.83.89/32"
 }
 
-variable "project_prefix" {
-  description = "Prefix for all S3 buckets and resources"
-  default     = "anomaly-crypto"
-}
 
 variable "eks_cluster_name" {
   default = "crypto-ml-eks"

@@ -101,24 +101,25 @@ if [ -z "$COMPOSE_FILE" ]; then
   for c in "${COMPOSE_CANDIDATES[@]}"; do LOG " - $c"; done
   exit 1
 fi
-LOG "Using compose file: ${COMPOSE_FILE}"
+echo "[kafka_install] Using compose file: $COMPOSE_FILE"
 
-# ---- 7) Pull latest images (optional) ----
-LOG "Pulling images (docker compose pull)..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull || LOG "docker compose pull returned non-zero (continuing)"
-
-# ---- 8) Start the stack (idempotent) ----
-LOG "Starting docker compose stack"
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
-
-# ---- 9) Verify containers are running (simple check) ----
-sleep 3
-LOG "Checking container status for compose stack"
-if docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps; then
-  LOG "Compose stack started (see 'docker compose ps' output above)"
+# Decide docker compose command
+if command -v docker compose >/dev/null 2>&1; then
+  DC_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  DC_CMD="docker-compose"
 else
-  LOG "WARNING: docker compose ps returned non-zero"
+  echo "[kafka_install] ERROR: neither 'docker compose' nor 'docker-compose' found"
+  exit 1
 fi
 
-LOG "kafka_install.sh completed successfully"
-exit 0
+echo "[kafka_install] Pulling images ($DC_CMD pull)..."
+$DC_CMD -f "$COMPOSE_FILE" pull || {
+  echo "[kafka_install] WARNING: $DC_CMD pull failed (continuing anyway)"
+}
+
+echo "[kafka_install] Starting docker compose stack..."
+$DC_CMD -f "$COMPOSE_FILE" up -d
+
+echo "[kafka_install] Kafka stack containers:"
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"

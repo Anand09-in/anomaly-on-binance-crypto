@@ -60,11 +60,47 @@ resource "aws_instance" "kafka_node" {
                   set -euo pipefail
                   export DEBIAN_FRONTEND=noninteractive
 
-                  apt-get update -y
-                  apt-get install -y git unzip curl docker.io docker-compose awscli
+                  echo "[user_data] Starting bootstrapping..."
 
+                  # Basic tools
+                  apt-get update -y
+                  apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release unzip git jq
+
+                  # Install Docker Engine + Compose v2 plugin (official)
+                  echo "[user_data] Installing Docker Engine and Compose v2..."
+                  if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+                    # Add Docker's official GPG key and repo
+                    mkdir -p /etc/apt/keyrings
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    echo \
+                      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+                      https://download.docker.com/linux/ubuntu \
+                      $(lsb_release -cs) stable" \
+                      | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+                    apt-get update -y
+                    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                  else
+                    echo "[user_data] Docker + docker compose already installed"
+                  fi
+
+                  # Ensure docker service is enabled and running
                   systemctl enable docker
                   systemctl start docker
+
+                  # Add ubuntu user to docker group (so sudo not required for docker)
+                  if id -u ubuntu >/dev/null 2>&1; then
+                    usermod -aG docker ubuntu || true
+                  fi
+
+                  # Install AWS CLI v2 if not present (useful for ECR login etc)
+                  if ! command -v aws >/dev/null 2>&1; then
+                    echo "[user_data] Installing AWS CLI v2..."
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+                    unzip -o /tmp/awscliv2.zip -d /tmp
+                    /tmp/aws/install -i /usr/local/aws-cli -b /usr/local/bin || true
+                    rm -rf /tmp/aws /tmp/awscliv2.zip
+                  fi
 
                   # Prepare ubuntu home
                   mkdir -p /home/ubuntu
@@ -80,28 +116,36 @@ resource "aws_instance" "kafka_node" {
 
                   # clone or update repository (idempotent)
                   if [ -d "$${REPO_DIR}/.git" ]; then
-                    echo "Repo exists, updating branch $${BRANCH}"
+                    echo "[user_data] Repo exists, updating branch $${BRANCH}"
                     cd "$${REPO_DIR}"
                     sudo -u ubuntu git fetch --all --prune
                     sudo -u ubuntu git checkout "$${BRANCH}" || sudo -u ubuntu git checkout -b "$${BRANCH}" origin/"$${BRANCH}"
                     sudo -u ubuntu git reset --hard origin/"$${BRANCH}"
                   else
-                    echo "Cloning repository ${var.git_repo_url} (branch ${var.git_repo_branch}) into $${REPO_DIR}"
-                    sudo -u ubuntu git clone -b "${var.git_repo_branch}" "${var.git_repo_url}" "$${REPO_DIR}" || { echo "git clone failed"; exit 1; }
+                    echo "[user_data] Cloning repository ${var.git_repo_url} (branch ${var.git_repo_branch}) into $${REPO_DIR}"
+                    sudo -u ubuntu git clone -b "${var.git_repo_branch}" "${var.git_repo_url}" "$${REPO_DIR}" || { echo "[user_data] git clone failed"; exit 1; }
+                  fi
+
+                  # Ensure docker plugin is available through PATH for ubuntu user (login shells)
+                  # (This helps when CI sshs and runs docker compose as ubuntu)
+                  if ! sudo -u ubuntu docker compose version >/dev/null 2>&1; then
+                    echo "[user_data] Note: 'docker compose' not yet available to ubuntu user in this shell; it will be available on next login."
                   fi
 
                   # --- KAFKA INFRA SETUP (stays in Terraform user_data) ---
                   INSTALL_SCRIPT="$${REPO_DIR}/Infra/kafka/kafka_install.sh"
                   if [ ! -f "$${INSTALL_SCRIPT}" ]; then
-                    echo "ERROR: $${INSTALL_SCRIPT} not found"
+                    echo "[user_data] ERROR: $${INSTALL_SCRIPT} not found"
                     exit 1
                   fi
                   chmod +x "$${INSTALL_SCRIPT}"
-                  echo "Executing kafka_install.sh..."
-                  "$${INSTALL_SCRIPT}" || { echo "kafka_install.sh failed"; exit 1; }
+                  echo "[user_data] Executing kafka_install.sh..."
+                  # Run kafka_install as ubuntu so files created under /home/ubuntu are owned by ubuntu
+                  sudo -u ubuntu bash -c "$${INSTALL_SCRIPT}" || { echo "[user_data] kafka_install.sh failed"; exit 1; }
 
-                  echo "Kafka infra is up. Producer will be deployed via CI/CD."
+                  echo "[user_data] Kafka infra is up. Producer will be deployed via CI/CD."
                 EOF
+
 
 
 
