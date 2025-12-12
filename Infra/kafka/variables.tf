@@ -54,7 +54,7 @@ variable "public_subnet_id" {
 
 variable "allowed_ip" {
   type = string
-  default = "122.172.85.177/32"
+  default = "0.0.0.0/0"
 }
 
 

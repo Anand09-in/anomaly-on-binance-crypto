@@ -9,8 +9,8 @@ systemctl enable --now docker
 # Install awscli
 pip3 install awscli
 
-# Get DB secrets from Secrets Manager
-DB_SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "${DB_SECRET_ARN}" --region ${REGION} --query SecretString --output text)
+# Get DB secrets from Secrets Manager (DB_SECRET_ARN and REGION are rendered by Terraform)
+DB_SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "${DB_SECRET_ARN}" --region "${REGION}" --query SecretString --output text)
 DB_USERNAME=$(echo "$DB_SECRET_JSON" | jq -r .username)
 DB_PASSWORD=$(echo "$DB_SECRET_JSON" | jq -r .password)
 DB_HOST=$(echo "$DB_SECRET_JSON" | jq -r .host)
@@ -25,8 +25,8 @@ services:
     image: mlfloworg/mlflow:2.3.1
     environment:
       - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
-      - AWS_REGION=${REGION}
-    command: mlflow server --backend-store-uri postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME} --default-artifact-root s3://${S3_BUCKET} --host 0.0.0.0 --port 5000
+      - AWS_REGION=$REGION
+    command: mlflow server --backend-store-uri postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME --default-artifact-root s3://${S3_BUCKET} --host 0.0.0.0 --port 5000
     ports:
       - "5000:5000"
     restart: unless-stopped

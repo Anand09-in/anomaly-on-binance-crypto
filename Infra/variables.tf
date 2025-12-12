@@ -5,7 +5,7 @@ variable "region" {
 
 variable "allowed_ip" {
   description = "Your public IP for MLflow ALB access"
-  default     = "122.172.83.89/32"
+  default     = "0.0.0.0/0"
 }
 
 
@@ -29,5 +29,10 @@ variable "project_name" {
 variable "key_name" {
   type        = string
   description = "EC2 key pair name for SSH access"
-  default= "anom-ec2-ssh-key"
+  default     = "anom-ec2-ssh-key"
 }
+
+
+variable "db_username" {}
+variable "db_password" { sensitive = true }
+variable "db_name" { default = "mlflow" }

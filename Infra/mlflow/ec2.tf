@@ -2,11 +2,12 @@ data "template_file" "mlflow_user_data" {
   template = file("${path.module}/mlflow_user_data.sh.tpl")
 
   vars = {
-    S3_BUCKET    = aws_s3_bucket.mlflow_artifacts.bucket
+    S3_BUCKET     = aws_s3_bucket.mlflow_artifacts.bucket
     DB_SECRET_ARN = aws_secretsmanager_secret.mlflow_db_secret.arn
-    REGION       = var.region
+    REGION        = var.region
   }
 }
+
 
 
 resource "aws_instance" "mlflow_ec2" {
@@ -15,6 +16,7 @@ resource "aws_instance" "mlflow_ec2" {
   subnet_id              = var.public_subnet_ids[0]
   iam_instance_profile   = aws_iam_instance_profile.mlflow_instance_profile.name
   security_groups        = [aws_security_group.mlflow_ec2_sg.id]
+  key_name               = var.key_name  
   user_data              = data.template_file.mlflow_user_data.rendered
 
   tags = {
