@@ -1,102 +1,112 @@
-# Real-Time Streaming Anomaly Detection Platform  
-**(Binance × Kafka × Flink × EKS × Terraform)**
+# 🪙 Real-Time ML-Based Streaming Anomaly Detection Platform
 
-A production-grade, cloud-native real-time anomaly detection system that ingests live cryptocurrency market data, processes it using distributed stream processing (PyFlink), and generates low-latency anomaly alerts.  
-The system is fully containerized, deployed on AWS EKS, and monitored with Prometheus & Grafana.
+**Binance × Kafka × Flink × Spark × AWS × Terraform**
+
+A **production-grade, cloud-native streaming ML platform** that ingests live cryptocurrency market data from Binance, performs real-time feature extraction using distributed stream processing, and applies **machine learning–based anomaly detection** to identify abnormal market behavior with low latency.
+
+The system is fully containerized, infrastructure-driven via Terraform, and designed with **modern MLOps principles** including model lifecycle management, artifact versioning, and observability.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Capabilities
 
-- Live crypto data ingestion from Binance WebSocket streams  
-- Kafka-based high-throughput streaming pipeline  
-- Distributed real-time processing using PyFlink  
-- Windowed feature computation (10s, 1m) for volatility and statistical modeling  
-- Real-time anomaly detection (Z-score, MAD)  
-- Cloud-native deployment on AWS EKS via Flink Kubernetes Operator  
-- Fault-tolerant state management using  S3 checkpoints  
-- Infrastructure fully automated with Terraform  
-- Centralized monitoring using Prometheus & Grafana
-  
+* Live market data ingestion from Binance WebSocket streams
+* High-throughput Kafka-based streaming backbone
+* Real-time feature extraction with PyFlink (windowed aggregations)
+* ML-based anomaly detection (beyond static thresholds)
+* Offline / batch ML training using Spark
+* Model tracking & lifecycle management with MLflow
+* Cloud-native deployment on AWS (EKS + EC2)
+* Fault-tolerant state and checkpoints backed by S3
+* Centralized monitoring with Prometheus & Grafana
+* Fully automated, reproducible infrastructure using Terraform
+
 ---
 
-## 🧠 Core Components
+## 🧠 System Architecture
 
-### **1. Kafka Producer**
-- Connects to Binance WebSocket  
-- Streams normalized events into Kafka (`raw-trades`, `kline-10s`)  
-- Exposes Prometheus metrics  
+### **1. Streaming Data Ingestion (Kafka Producer)**
 
-### **2. PyFlink Real-Time Processor**
-- Consumes Kafka streams  
-- Computes sliding/tumbling windows  
-- Extracts features (VWAP, volatility, returns, volume spikes)  
-- Detects anomalies using statistical methods  
-- Publishes alerts to Kafka (`alerts`)  
-- Writes historical aggregates to S3 (Parquet)  
+* Connects to Binance WebSocket APIs
+* Streams normalized trade and aggregation events to Kafka
+* Supports multiple symbols via configuration
+* Exposes operational metrics for monitoring
 
-### **3. AWS EKS + Flink Kubernetes Operator**
-- Manages JobManager & TaskManagers  
-- Supports autoscaling and rolling upgrades  
-- Ensures high availability  
+**Kafka Topics**
 
-### **4. Infrastructure as Code (Terraform)**
-- Provisions:  
-  - VPC  
-  - EKS cluster + Node groups  
-  - S3 buckets  
-  - IAM roles (IRSA)  
-  - ECR repositories  
+* `raw-trades`
+* `kline-10s`
+* `kline-1m`
+* `alerts`
 
-### **5. Monitoring**
-- Prometheus scrapes metrics from Kafka, Flink, and producer  
-- Grafana dashboards visualize throughput, latency, anomalies, state size, and checkpoint health  
+---
+
+### **2. Real-Time Feature Engineering (PyFlink)**
+
+* Consumes Kafka streams
+* Computes sliding and tumbling windows (10s, 1m)
+* Generates real-time features such as:
+
+  * Returns
+  * Volatility
+  * VWAP
+  * Volume imbalance
+  * Price momentum
+* Persists aggregated features to S3 (Parquet)
+
+---
+
+### **3. ML-Based Anomaly Detection**
+
+* Uses streaming features for **online anomaly scoring**
+* Supports:
+
+  * Feature-driven statistical models
+  * ML-based detectors (Isolation Forest, clustering-based, probabilistic models)
+* Separates **training (offline)** from **inference (streaming)**
+* Publishes detected anomalies to Kafka (`alerts`)
+
+---
+
+### **4. Batch ML Training (Spark + MLflow)**
+
+* Spark jobs read historical features from S3
+* Train and evaluate anomaly detection models
+* Log experiments, metrics, and artifacts to MLflow
+* Store trained models and metadata in S3
+* Enables model iteration without redeploying infrastructure
+
+---
+
+### **5. Cloud Infrastructure & Deployment**
+
+* **Terraform-managed infrastructure**
+
+  * VPC, Subnets, Security Groups
+  * EKS cluster and node groups
+  * EC2 (Kafka, supporting services)
+  * S3 buckets (features, artifacts, checkpoints)
+  * ECR repositories
+* **Containerized services**
+
+  * Kafka cluster
+  * Binance producer
+  * Flink jobs
+  * MLflow server
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Category | Tools |
-|---------|-------|
-| Data Source | Binance WebSocket API |
-| Ingestion | Kafka |
-| Stream Processing | Flink (PyFlink) |
-| Cloud Platform | AWS EKS, EC2, S3 |
-| Infrastructure | Terraform |
-| Containers | Docker |
-| Monitoring | Prometheus, Grafana |
-
-
-
-
-ssh -i anom-ec2-ssh-key.pem ubuntu@<public-ip>
-
-terraform destroy -var="key_name=anom-ec2-ssh-key" -auto-approve
-
-terraform fmt
-terraform validate
-terraform apply -var="key_name=anom-ec2-ssh-key" -auto-approve
-
-
-
-# show final user-data output (most useful)
-sudo tail -n 400 /var/log/cloud-init-output.log
-
-# show cloud-init main log
-sudo tail -n 200 /var/log/cloud-init.log
-
-# cloud-init overall status
-sudo cloud-init status --long || true
-
-
-# kline-10s:
-docker exec -it kafka1 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic kline-10s \
-  --from-beginning
-
-# kline-1m:
-docker exec -it kafka1 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic kline-1m \
-  --from-beginning
+| Layer             | Tools                  |
+| ----------------- | ---------------------- |
+| Data Source       | Binance WebSocket API  |
+| Streaming         | Kafka                  |
+| Stream Processing | Apache Flink (PyFlink) |
+| Batch Processing  | Apache Spark           |
+| ML Lifecycle      | MLflow                 |
+| Storage           | Amazon S3              |
+| Cloud             | AWS (EC2, EKS, IAM)    |
+| Infrastructure    | Terraform              |
+| Containers        | Docker                 |
+| Monitoring        | Prometheus, Grafana    |
