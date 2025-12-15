@@ -1,4 +1,4 @@
-# 🪙 Real-Time ML-Based Streaming Anomaly Detection Platform
+# 🪙 Real-Time ML-Based Streaming Anomaly Detection Platform [WIP]
 
 **Binance × Kafka × Flink × Spark × AWS × Terraform**
 
@@ -110,3 +110,4 @@ The system is fully containerized, infrastructure-driven via Terraform, and desi
 | Infrastructure    | Terraform              |
 | Containers        | Docker                 |
 | Monitoring        | Prometheus, Grafana    |
+
