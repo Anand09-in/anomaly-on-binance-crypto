@@ -1,0 +1,42 @@
+groups:
+  - name: anomaly_pipeline
+    rules:
+      - alert: HighAnomalyRate
+        expr: sum(anomaly_rate_1h) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High anomaly rate: {{ $value }} alerts in last 1h"
+
+      - alert: PipelineStaleBTCUSDT
+        expr: pipeline_lag_seconds{symbol="btcusdt"} > 120
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BTCUSDT kline pipeline stale for {{ $value | humanizeDuration }}"
+
+      - alert: PipelineStale
+        expr: pipeline_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.symbol }} pipeline stale for {{ $value | humanizeDuration }}"
+
+      - alert: DriftDetected
+        expr: drift_psi_score > 0.25
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Feature drift detected — {{ $labels.feature }} PSI={{ $value | printf \"%.3f\" }}"
+
+      - alert: ModelNotTrained
+        expr: time() - model_last_trained_timestamp > 86400 * 3
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Isolation Forest model has not been retrained in >3 days"

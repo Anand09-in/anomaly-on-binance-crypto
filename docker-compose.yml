@@ -1,0 +1,263 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Kafka (KRaft — no Zookeeper)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.8.0
+    logging: *default-logging
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 0
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: EXTERNAL://:9092,INTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 0@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    logging: *default-logging
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: anomaly
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
+
+  # ---------------------------------------------------------------------------
+  # Postgres
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    logging: *default-logging
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: anomaly
+      POSTGRES_PASSWORD: anomaly
+      POSTGRES_DB: anomaly
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anomaly"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # MLflow
+  # ---------------------------------------------------------------------------
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.2
+    logging: *default-logging
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+
+  # ---------------------------------------------------------------------------
+  # Binance producer (Kafka/Producer/)
+  # ---------------------------------------------------------------------------
+  producer:
+    build:
+      context: ./Kafka/Producer
+      dockerfile: Dockerfile
+    logging: *default-logging
+    ports:
+      - "8001:8001"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SYMBOLS: btcusdt,ethusdt,solusdt,bnbusdt
+      WS_STREAM_TYPE: trade
+      KAFKA_RAW_TOPIC: raw-trades
+      KAFKA_KLINE_10S_TOPIC: kline-10s
+      KAFKA_KLINE_1M_TOPIC: kline-1m
+      PROMETHEUS_PORT: "8001"
+      AGG_WINDOW_SECONDS_10S: "10"
+      AGG_WINDOW_SECONDS_1M: "60"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Flink (PyFlink 1.18)
+  # ---------------------------------------------------------------------------
+  flink-jobmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
+    logging: *default-logging
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - "FLINK_PROPERTIES=jobmanager.rpc.address: flink-jobmanager"
+      - PYTHONPATH=/opt/anomaly
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - POSTGRES_DSN=postgresql://anomaly:anomaly@postgres:5432/anomaly
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./streaming:/opt/anomaly/streaming
+      - ./training:/opt/anomaly/training
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8081/overview || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  flink-taskmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
+    logging: *default-logging
+    command: taskmanager
+    environment:
+      - "FLINK_PROPERTIES=jobmanager.rpc.address: flink-jobmanager"
+      - PYTHONPATH=/opt/anomaly
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - POSTGRES_DSN=postgresql://anomaly:anomaly@postgres:5432/anomaly
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./streaming:/opt/anomaly/streaming
+      - ./training:/opt/anomaly/training
+    depends_on:
+      - flink-jobmanager
+
+  # ---------------------------------------------------------------------------
+  # Dagster (orchestration)
+  # ---------------------------------------------------------------------------
+  dagster:
+    image: python:3.11-slim
+    logging: *default-logging
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install -q dagster==1.7.16 dagster-webserver==1.7.16 scikit-learn pandas
+               psycopg[binary] mlflow evidently python-dotenv numpy &&
+               dagster dev -h 0.0.0.0 -p 3000 -f orchestration/definitions.py"
+    environment:
+      POSTGRES_DSN: postgresql://anomaly:anomaly@postgres:5432/anomaly
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REPORTS_PATH: /app/data/reports
+    depends_on:
+      - postgres
+      - mlflow
+
+  # ---------------------------------------------------------------------------
+  # Observability
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    logging: *default-logging
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    logging: *default-logging
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: anomaly
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./serving/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./serving/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./serving/grafana/anomaly_dashboard.json:/etc/grafana/provisioning/dashboards/anomaly_dashboard.json:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  metrics-exporter:
+    image: python:3.11-slim
+    logging: *default-logging
+    ports:
+      - "8000:8000"
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install -q prometheus-client psycopg[binary] python-dotenv mlflow &&
+               python -m observability.metrics_exporter"
+    environment:
+      POSTGRES_DSN: postgresql://anomaly:anomaly@postgres:5432/anomaly
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      METRICS_PORT: "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Streamlit dashboard
+  # ---------------------------------------------------------------------------
+  streamlit:
+    image: python:3.11-slim
+    logging: *default-logging
+    ports:
+      - "8501:8501"
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install -q streamlit psycopg[binary] pandas python-dotenv &&
+               streamlit run serving/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
+    environment:
+      POSTGRES_DSN: postgresql://anomaly:anomaly@postgres:5432/anomaly
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  mlflow_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,23 @@
+FROM flink:1.18-scala_2.12
+
+# Install Python 3.11 and pip
+RUN apt-get update && \
+    apt-get install -y python3.11 python3.11-dev python3-pip curl && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    rm -rf /var/lib/apt/lists/*
+
+# Kafka connector JAR for Flink 1.18
+RUN wget -q -P /opt/flink/lib/ \
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-kafka/3.1.0-1.18/flink-connector-kafka-3.1.0-1.18.jar
+
+# Python dependencies for the Flink job
+RUN pip install --no-cache-dir \
+    apache-flink==1.18.0 \
+    "psycopg[binary]>=3.1" \
+    scikit-learn==1.4.2 \
+    mlflow==2.12.2 \
+    numpy>=1.26 \
+    python-dotenv
+
+ENV PYTHONPATH=/opt/anomaly
